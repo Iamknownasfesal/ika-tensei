@@ -172,8 +172,10 @@ export async function buildVoteTransaction(
       new TransactionInstruction({
         programId: CORE_VOTER_PROGRAM_ID,
         keys: [
-          { pubkey: registrar, isSigner: false, isWritable: false },
           { pubkey: voterWeightRecord, isSigner: false, isWritable: true },
+          { pubkey: realm, isSigner: false, isWritable: false },
+          { pubkey: communityMint, isSigner: false, isWritable: false },
+          { pubkey: wallet, isSigner: false, isWritable: false }, // voter
           { pubkey: wallet, isSigner: true, isWritable: true }, // payer
           { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         ],
