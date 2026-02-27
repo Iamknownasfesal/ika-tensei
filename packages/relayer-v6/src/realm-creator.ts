@@ -368,28 +368,47 @@ export class RealmCreator {
     const registrar = deriveRegistrarPda(realm, communityMint, coreVoterProgramId);
     const maxVoterWeightRecord = deriveMaxVoterWeightRecordPda(realm, communityMint, coreVoterProgramId);
 
-    const instructions: TransactionInstruction[] = [];
+    // ── TX1: Create registrar (if not already created) ───────────────────
+    const registrarInfo = await connection.getAccountInfo(registrar);
+    if (!registrarInfo) {
+      const createRegistrarDisc = Buffer.from([132, 235, 36, 49, 139, 66, 202, 69]);
+      const tx1 = new Transaction().add(
+        new TransactionInstruction({
+          programId: coreVoterProgramId,
+          keys: [
+            { pubkey: registrar, isSigner: false, isWritable: true },
+            { pubkey: SPL_GOVERNANCE_PROGRAM_ID, isSigner: false, isWritable: false },
+            { pubkey: realm, isSigner: false, isWritable: false },
+            { pubkey: communityMint, isSigner: false, isWritable: false },
+            { pubkey: payer, isSigner: true, isWritable: false },  // realm_authority
+            { pubkey: payer, isSigner: true, isWritable: true },   // payer
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          ],
+          data: createRegistrarDisc,
+        }),
+      );
+      tx1.feePayer = payer;
+      tx1.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
+      tx1.partialSign(relayerKeypair);
 
-    // ── Instruction 1: create_registrar ──────────────────────────────────
-    // Anchor discriminator: SHA256("global:create_registrar")[..8]
-    const createRegistrarDisc = Buffer.from([132, 235, 36, 49, 139, 66, 202, 69]);
-    instructions.push(
-      new TransactionInstruction({
-        programId: coreVoterProgramId,
-        keys: [
-          { pubkey: registrar, isSigner: false, isWritable: true },
-          { pubkey: SPL_GOVERNANCE_PROGRAM_ID, isSigner: false, isWritable: false },
-          { pubkey: realm, isSigner: false, isWritable: false },
-          { pubkey: communityMint, isSigner: false, isWritable: false },
-          { pubkey: payer, isSigner: true, isWritable: false },  // realm_authority
-          { pubkey: payer, isSigner: true, isWritable: true },   // payer
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-        ],
-        data: createRegistrarDisc,
-      }),
-    );
+      const tx1Hash = await connection.sendRawTransaction(tx1.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+      });
+      const lb1 = await connection.getLatestBlockhash('confirmed');
+      await connection.confirmTransaction(
+        { signature: tx1Hash, blockhash: lb1.blockhash, lastValidBlockHeight: lb1.lastValidBlockHeight },
+        'confirmed',
+      );
+      logger.info({ txHash: tx1Hash, registrar: registrar.toBase58() }, 'Registrar created');
+    } else {
+      logger.info({ registrar: registrar.toBase58() }, 'Registrar already exists — skipping creation');
+    }
 
-    // ── Instruction 2: configure_collection ──────────────────────────────
+    // ── TX2: Configure collection + create max voter weight record ───────
+    const tx2Instructions: TransactionInstruction[] = [];
+
+    // configure_collection
     const configureCollectionDisc = Buffer.from([71, 128, 33, 233, 71, 167, 155, 164]);
     const configureData = Buffer.alloc(8 + 32 + 8);
     configureCollectionDisc.copy(configureData);
@@ -398,63 +417,63 @@ export class RealmCreator {
     configureData.writeUInt32LE(1, 40);
     configureData.writeUInt32LE(0, 44);
 
-    instructions.push(
+    tx2Instructions.push(
       new TransactionInstruction({
         programId: coreVoterProgramId,
         keys: [
           { pubkey: registrar, isSigner: false, isWritable: true },
-          { pubkey: realm, isSigner: false, isWritable: false },     // realm (for ownership check)
+          { pubkey: realm, isSigner: false, isWritable: false },
           { pubkey: payer, isSigner: true, isWritable: false },      // realm_authority
         ],
         data: configureData,
       }),
     );
 
-    // ── Instruction 3: create_max_voter_weight_record ────────────────────
-    const createMaxVwrDisc = Buffer.from([182, 70, 243, 119, 162, 176, 38, 248]);
-    const maxWeight = Buffer.alloc(8 + 8);
-    createMaxVwrDisc.copy(maxWeight);
-    // max_voter_weight = 10000 (large value since Core collections have no fixed supply)
-    maxWeight.writeUInt32LE(10000, 8);
-    maxWeight.writeUInt32LE(0, 12);
+    // create_max_voter_weight_record (if not already created)
+    const maxVwrInfo = await connection.getAccountInfo(maxVoterWeightRecord);
+    if (!maxVwrInfo) {
+      const createMaxVwrDisc = Buffer.from([182, 70, 243, 119, 162, 176, 38, 248]);
+      const maxWeight = Buffer.alloc(8 + 8);
+      createMaxVwrDisc.copy(maxWeight);
+      // max_voter_weight = 10000 (large value since Core collections have no fixed supply)
+      maxWeight.writeUInt32LE(10000, 8);
+      maxWeight.writeUInt32LE(0, 12);
 
-    instructions.push(
-      new TransactionInstruction({
-        programId: coreVoterProgramId,
-        keys: [
-          { pubkey: registrar, isSigner: false, isWritable: false },          // registrar (for realm ownership check)
-          { pubkey: maxVoterWeightRecord, isSigner: false, isWritable: true },
-          { pubkey: realm, isSigner: false, isWritable: false },
-          { pubkey: communityMint, isSigner: false, isWritable: false },
-          { pubkey: payer, isSigner: true, isWritable: false },  // realm_authority
-          { pubkey: payer, isSigner: true, isWritable: true },   // payer
-          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-        ],
-        data: maxWeight,
-      }),
-    );
+      tx2Instructions.push(
+        new TransactionInstruction({
+          programId: coreVoterProgramId,
+          keys: [
+            { pubkey: registrar, isSigner: false, isWritable: false },
+            { pubkey: maxVoterWeightRecord, isSigner: false, isWritable: true },
+            { pubkey: realm, isSigner: false, isWritable: false },
+            { pubkey: communityMint, isSigner: false, isWritable: false },
+            { pubkey: payer, isSigner: true, isWritable: false },  // realm_authority
+            { pubkey: payer, isSigner: true, isWritable: true },   // payer
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          ],
+          data: maxWeight,
+        }),
+      );
+    }
 
-    const tx = new Transaction().add(...instructions);
-    tx.feePayer = payer;
-    tx.recentBlockhash = (
-      await connection.getLatestBlockhash('confirmed')
-    ).blockhash;
-    tx.partialSign(relayerKeypair);
+    const tx2 = new Transaction().add(...tx2Instructions);
+    tx2.feePayer = payer;
+    tx2.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
+    tx2.partialSign(relayerKeypair);
 
-    const txHash = await connection.sendRawTransaction(tx.serialize(), {
+    const tx2Hash = await connection.sendRawTransaction(tx2.serialize(), {
       skipPreflight: false,
       preflightCommitment: 'confirmed',
     });
-
-    const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+    const lb2 = await connection.getLatestBlockhash('confirmed');
     await connection.confirmTransaction(
-      { signature: txHash, blockhash: latestBlockhash.blockhash, lastValidBlockHeight: latestBlockhash.lastValidBlockHeight },
+      { signature: tx2Hash, blockhash: lb2.blockhash, lastValidBlockHeight: lb2.lastValidBlockHeight },
       'confirmed',
     );
 
     logger.info(
       {
-        txHash,
+        txHash: tx2Hash,
         registrar: registrar.toBase58(),
         maxVoterWeightRecord: maxVoterWeightRecord.toBase58(),
         collection: collectionAssetAddress,
