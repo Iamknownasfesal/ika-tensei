@@ -1,0 +1,19 @@
+node_modules/
+dist/
+
+# Keypairs / secrets
+*.json
+!package.json
+!tsconfig.json
+.env
+.env.*
+!.env.example
+
+# SQLite database
+*.db
+*.db-wal
+*.db-shm
+
+# Old cursor/state files
+.relayer-cursor-*.json
+.vaa-ingester-state.json

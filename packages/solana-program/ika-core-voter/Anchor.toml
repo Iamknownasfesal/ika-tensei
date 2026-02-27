@@ -1,0 +1,22 @@
+[toolchain]
+anchor = "0.32.1"
+
+[features]
+default = []
+no-entrypoint = []
+idl-build = ["anchor-lang/idl-build"]
+
+[programs.localnet]
+ika_core_voter = "E5thJCWofTMbmyhUhCai3hZiruFtYmmscDio6GwFCGaW"
+
+[programs.devnet]
+ika_core_voter = "E5thJCWofTMbmyhUhCai3hZiruFtYmmscDio6GwFCGaW"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/devnet-admin.json"
+
+[workspace]
+members = [
+    "programs/*"
+]

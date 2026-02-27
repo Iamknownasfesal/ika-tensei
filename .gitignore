@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+target/
+out/
+
+# Environment
+.env
+.env.*
+!.env.example
+*.keystore
+*.pem
+*.secret
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Foundry
+cache/
+
+# Solana
+test-ledger/
+
+# Sui
+.archive/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Temporary
+/tmp/
+*.tmp
+
+# Old backend (archived)
+packages/backend/

@@ -1,0 +1,18 @@
+services:
+  relayer:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+      - "8080:8080"
+    volumes:
+      - relayer-data:/app/data
+      - ./relayer-keypair.json:/app/relayer-keypair.json:ro
+      - ./sui-keypair.json:/app/sui-keypair.json:ro
+    env_file: .env.production
+    environment:
+      DB_PATH: /app/data/relayer.db
+      NODE_ENV: production
+
+volumes:
+  relayer-data:

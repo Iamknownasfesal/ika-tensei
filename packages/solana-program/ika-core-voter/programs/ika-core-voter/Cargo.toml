@@ -1,0 +1,26 @@
+[package]
+name = "ika-core-voter"
+version = "1.0.0"
+edition = "2021"
+description = "Metaplex Core voter weight plugin for SPL Governance"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[features]
+default = []
+no-entrypoint = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "0.30.1"
+# Pin blake3 to avoid constant_time_eq 0.4.2 which needs Rust edition 2024
+blake3 = "=1.5.5"
+
+[profile.release]
+overflow-checks = true
+opt-level = "z"
+lto = "thin"
+codegen-units = 1
+panic = "abort"

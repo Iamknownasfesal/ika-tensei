@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: relayer
+  namespace: ika-tensei
+spec:
+  selector:
+    app: relayer
+  ports:
+    - name: api
+      port: 3001
+      targetPort: 3001
+    - name: health
+      port: 8080
+      targetPort: 8080

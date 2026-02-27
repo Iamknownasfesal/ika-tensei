@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relayer
+  namespace: ika-tensei
+  labels:
+    app: relayer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: relayer
+  template:
+    metadata:
+      labels:
+        app: relayer
+    spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1001:1001 /app/data"]
+          volumeMounts:
+            - name: relayer-data
+              mountPath: /app/data
+      containers:
+        - name: relayer
+          image: ika-relayer:1.1
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3001
+              name: api
+            - containerPort: 8080
+              name: health
+          envFrom:
+            - secretRef:
+                name: relayer-env
+          env:
+            - name: DB_PATH
+              value: /app/data/relayer.db
+            - name: NODE_ENV
+              value: production
+            - name: RELAYER_KEYPAIR_PATH
+              value: /app/secrets/relayer-keypair.json
+            - name: SUI_KEYPAIR_PATH
+              value: /app/secrets/sui-keypair.json
+          volumeMounts:
+            - name: relayer-data
+              mountPath: /app/data
+            - name: keypairs
+              mountPath: /app/secrets
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: relayer-data
+          persistentVolumeClaim:
+            claimName: relayer-data
+        - name: keypairs
+          secret:
+            secretName: relayer-keypairs

@@ -1,0 +1,25 @@
+[toolchain]
+anchor = "0.32.1"
+
+[features]
+default = []
+no-entrypoint = []
+idl-build = ["anchor-lang/idl-build"]
+
+[programs.localnet]
+ika-tensei-reborn = "2bW2SFSuiBMCef2xNk892uVfSTqjkRGmv6jD9PHKqzW4"
+
+[programs.devnet]
+ika-tensei-reborn = "2bW2SFSuiBMCef2xNk892uVfSTqjkRGmv6jD9PHKqzW4"
+
+[programs.mainnet]
+ika-tensei-reborn = "2bW2SFSuiBMCef2xNk892uVfSTqjkRGmv6jD9PHKqzW4"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/devnet-admin.json"
+
+[workspace]
+members = [
+    "programs/*"
+]

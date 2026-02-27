@@ -1,0 +1,14 @@
+{
+  "name": "ika-tensei-tests",
+  "version": "3.0.0",
+  "description": "Ika Tensei v3 Solana integration tests",
+  "type": "module",
+  "scripts": {
+    "test": "node test-v3.mjs"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.91.0",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,15 @@
+[package]
+name = "IkaTenseiAptos"
+version = "8.0.0"
+
+[dependencies]
+# Pin framework rev to match Wormhole's dependency (avoids conflicting dep error)
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+AptosStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-stdlib", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+AptosTokenObjects = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-token-objects", rev = "6f83bc6d02207298b2dee91133d75538789bf582" }
+Wormhole = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir = "aptos/wormhole", rev = "main" }
+
+[addresses]
+ika_tensei_aptos = "_"
+wormhole = "0x5bc11445584a763c1fa7ed39081f1b920954da14e04b32440cba863d03e19625"
+deployer = "0x108bc32f7de18a5f6e1e7d6ee7aff9f5fc858d0d87ac0da94dd8d2a5d267d6b"

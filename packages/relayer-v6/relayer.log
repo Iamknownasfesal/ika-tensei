@@ -1,0 +1,69 @@
+[21:55:48.006] INFO (45815): Starting Ika Tensei v8 Relayer…
+[21:55:48.532] INFO (45815): All connections verified
+[21:55:49.153] INFO (45815): Treasury balances
+    ikaBalance: "497080000000"
+    suiBalance: "40000000000"
+[21:55:49.153] INFO (45815): Seeding initial presign pool
+    count: 5
+[21:55:52.633] INFO (45815): Presign request transaction submitted
+    txDigest: "HUZMvmecQnWtUcCgdC59ag1aoDiPfNRGrXVosqbvSH5q"
+[21:55:54.244] INFO (45815): Waiting for presign completion
+    presignId: "0xf5bc4ecdadd050aa53dd333a91ea5666881ab9ee3cc9e0beb843245282380b1c"
+    objectId: "0xb8ece5ee7dcef4712ffb6f3afa162bbe48d9862cc026af0ac9bd8736bb434389"
+[21:56:02.867] INFO (45815): Presign added to pool
+    objectId: "0xb8ece5ee7dcef4712ffb6f3afa162bbe48d9862cc026af0ac9bd8736bb434389"
+    presignId: "0xf5bc4ecdadd050aa53dd333a91ea5666881ab9ee3cc9e0beb843245282380b1c"
+[21:56:04.095] INFO (45815): Presign request transaction submitted
+    txDigest: "5319YmrKLdMP8nytGaxkGwtSq4Z9YkcCYt1MjUrA1ZKR"
+[21:56:05.774] INFO (45815): Waiting for presign completion
+    presignId: "0xd6795955a0f8529f2022b43c3a46fcde44d1f2f0e71ba59b0a92f130e1c8dcc7"
+    objectId: "0xa1ab766ee19724ef9c7ad86e0fede75d25a8fe6c7fb2f1dc5d9dd9288d175dca"
+[21:56:11.057] INFO (45815): Presign added to pool
+    objectId: "0xa1ab766ee19724ef9c7ad86e0fede75d25a8fe6c7fb2f1dc5d9dd9288d175dca"
+    presignId: "0xd6795955a0f8529f2022b43c3a46fcde44d1f2f0e71ba59b0a92f130e1c8dcc7"
+[21:56:12.331] INFO (45815): Presign request transaction submitted
+    txDigest: "5nJU1ns2qCV5LVZZbsx3NHt9rV7MNG5b1xduyLyZyTYn"
+[21:56:14.011] INFO (45815): Waiting for presign completion
+    presignId: "0x0cde273705c9a575f1c5ba70d501e1181e456f8cc9d09be3a85cc0d1bbe22750"
+    objectId: "0x4ba5fd1341b6d5aa82eaaebe8ea9768b6fc57f4b3c0b88fc1cc9333bd608d967"
+[21:56:22.689] INFO (45815): Presign added to pool
+    objectId: "0x4ba5fd1341b6d5aa82eaaebe8ea9768b6fc57f4b3c0b88fc1cc9333bd608d967"
+    presignId: "0x0cde273705c9a575f1c5ba70d501e1181e456f8cc9d09be3a85cc0d1bbe22750"
+[21:56:23.989] INFO (45815): Presign request transaction submitted
+    txDigest: "FQjR2Wp76D2THzvc3K8YFHQt6UVC6h7vGhNrzRYjpKvn"
+[21:56:25.583] INFO (45815): Waiting for presign completion
+    presignId: "0x45dd74e13ba47c7d30a9576a3d12b8e4936272deb05217fa8fd2902fc0f68da6"
+    objectId: "0x1daac48c335acec86d8afa313e02adc4879cc19a29e0410887c4cacc4c7b3943"
+[21:56:30.696] INFO (45815): Presign added to pool
+    objectId: "0x1daac48c335acec86d8afa313e02adc4879cc19a29e0410887c4cacc4c7b3943"
+    presignId: "0x45dd74e13ba47c7d30a9576a3d12b8e4936272deb05217fa8fd2902fc0f68da6"
+[21:56:31.928] INFO (45815): Presign request transaction submitted
+    txDigest: "EsZ6ohQJEp6xkbDL4piHSaZy5nn1m1spb43exk85DbnP"
+[21:56:33.606] INFO (45815): Waiting for presign completion
+    presignId: "0x3b381137493709c4807a03c269d21725f34a498ed327f42e76a88f674ab750cf"
+    objectId: "0x9fca9b847c8ded34c7a0b14b98ed857179d61c6239893acac39cf9c209bd7667"
+[21:56:42.273] INFO (45815): Presign added to pool
+    objectId: "0x9fca9b847c8ded34c7a0b14b98ed857179d61c6239893acac39cf9c209bd7667"
+    presignId: "0x3b381137493709c4807a03c269d21725f34a498ed327f42e76a88f674ab750cf"
+[21:56:42.273] INFO (45815): Presign replenishment complete
+    available: 5
+    requested: 5
+[21:56:42.273] INFO (45815): Seal signer initialized
+[21:56:42.277] INFO (45815): Loaded VAA ingester state
+    entries: 0
+[21:56:42.277] INFO (45815): Starting VAA ingester
+    emitters: [
+      "BaseSepolia(10004)",
+      "NEAR(15)"
+    ]
+[21:56:43.509] INFO (45815): VAA ingester started
+[21:56:43.515] INFO (45815): Subscribing to Sui events
+    eventType: "0xbc418c042c18afcdb37cff3fe2c5c21a8c41bf4245e6f4f8ab31c1400ad5b9c6::orchestrator::SealPending"
+[21:56:43.517] INFO (45815): Health check server started
+    port: 8080
+[21:56:43.517] INFO (45815): API server listening
+    port: 3001
+[21:57:48.693] INFO (45815): Seal session created — awaiting payment
+    sessionId: "818b9e7c-84d3-4983-b318-8db7a79d6064"
+    solanaWallet: "4nMLxEsHYGuj1GfFXbn1aowPVbeeqmY3i6BjtMmX4LaU"
+    sourceChain: "near"
