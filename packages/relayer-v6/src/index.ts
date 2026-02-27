@@ -839,22 +839,34 @@ export class Relayer {
           return;
         }
 
-        // Find the Core collection asset from Solana on-chain data
+        // Find a completed session for this collection to get source_chain + nft_contract
         const config = getConfig();
         const conn = new Connection(config.solanaRpcUrl, "confirmed");
         const { PublicKey } = await import("@solana/web3.js");
 
-        // Look up collection PDA for this realm's collection name
+        const sessionRow = getDb().prepare(
+          `SELECT source_chain, nft_contract FROM sessions
+           WHERE collection_name = ? AND status = 'complete' AND nft_contract IS NOT NULL
+           LIMIT 1`
+        ).get(realm.collection_name) as { source_chain: string; nft_contract: string } | undefined;
+
+        if (!sessionRow) {
+          res.status(400).json({ error: "No completed bridge sessions found for this collection" });
+          return;
+        }
+
+        // Derive collection PDA with correct seeds: ["reborn_collection", source_chain_u16, nft_contract]
         const programId = new PublicKey(config.solanaProgramId);
-        const collectionSeeds = [
-          Buffer.from("reborn_collection"),
-          Buffer.from(realm.collection_name),
-        ];
-        const [collectionPda] = PublicKey.findProgramAddressSync(collectionSeeds, programId);
+        const sourceChainBuf = Buffer.alloc(2);
+        sourceChainBuf.writeUInt16LE(Number(sessionRow.source_chain));
+        const [collectionPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("reborn_collection"), sourceChainBuf, Buffer.from(sessionRow.nft_contract)],
+          programId,
+        );
 
         const pda = await conn.getAccountInfo(collectionPda);
         if (!pda || pda.data.length < 8) {
-          res.status(400).json({ error: "Collection PDA not found on-chain — no NFTs minted yet" });
+          res.status(400).json({ error: "Collection PDA not found on-chain" });
           return;
         }
 
