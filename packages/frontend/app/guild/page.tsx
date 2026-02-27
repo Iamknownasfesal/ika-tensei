@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -9,6 +9,7 @@ import { BackgroundAtmosphere } from "@/components/ui/BackgroundAtmosphere";
 import { DialogueBox } from "@/components/ui/DialogueBox";
 import { SummoningCircle } from "@/components/ui/SummoningCircle";
 import { useGuildRealms, useGuildProposals, useGuildTreasury, useGuildStats } from "@/hooks/useGuild";
+import { useQueryClient } from "@tanstack/react-query";
 import type { GuildRealm, GuildProposal } from "@/lib/api";
 
 // Dynamic import to avoid SSR issues with useDynamicContext
@@ -360,6 +361,112 @@ const VoteCeremonyModal = ({
   </AnimatePresence>
 );
 
+// Create proposal modal
+const CreateProposalModal = ({
+  isOpen,
+  onSubmit,
+  onClose,
+  isSubmitting,
+}: {
+  isOpen: boolean;
+  onSubmit: (title: string, description: string) => void;
+  onClose: () => void;
+  isSubmitting: boolean;
+}) => {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.8, y: 50 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.8, y: 50 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#1a1a2e] border-4 border-ritual-gold rounded-lg p-6 max-w-lg w-full"
+          >
+            <div className="text-center mb-6">
+              <h3 className="font-pixel text-sm text-ritual-gold mb-2">INSCRIBE PROPOSAL</h3>
+              <p className="font-serif text-xs text-faded-spirit italic">
+                Draft a decree for the council to deliberate
+              </p>
+            </div>
+
+            {isSubmitting ? (
+              <div className="text-center py-8">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                  className="w-8 h-8 border-2 border-ritual-gold border-t-transparent rounded-full mx-auto mb-4"
+                />
+                <p className="font-pixel text-[10px] text-ritual-gold">Inscribing on-chain...</p>
+                <p className="font-silk text-[9px] text-faded-spirit mt-1">Check your wallet</p>
+              </div>
+            ) : (
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="font-pixel text-[9px] text-faded-spirit block mb-1">TITLE</label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Fund community marketing campaign"
+                    maxLength={120}
+                    className="w-full px-3 py-2 bg-void-purple/50 border border-faded-spirit/30 text-ghost-white font-silk text-xs rounded focus:border-ritual-gold focus:outline-none placeholder:text-faded-spirit/40"
+                  />
+                </div>
+                <div>
+                  <label className="font-pixel text-[9px] text-faded-spirit block mb-1">DESCRIPTION</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe what this proposal is about..."
+                    rows={4}
+                    className="w-full px-3 py-2 bg-void-purple/50 border border-faded-spirit/30 text-ghost-white font-silk text-xs rounded focus:border-ritual-gold focus:outline-none resize-none placeholder:text-faded-spirit/40"
+                  />
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (title.trim()) onSubmit(title.trim(), description.trim());
+                  }}
+                  disabled={!title.trim()}
+                  className="w-full p-3 bg-ritual-gold/20 border-2 border-ritual-gold rounded-lg font-pixel text-[10px] text-ritual-gold disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  INSCRIBE PROPOSAL
+                </motion.button>
+              </div>
+            )}
+
+            {!isSubmitting && (
+              <button
+                onClick={() => {
+                  setTitle("");
+                  setDescription("");
+                  onClose();
+                }}
+                className="w-full py-2 font-silk text-[9px] text-faded-spirit hover:text-ghost-white"
+              >
+                Cancel
+              </button>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 // Realm selector
 const RealmSelector = ({
   realms,
@@ -432,6 +539,10 @@ export default function GuildPage() {
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [voteError, setVoteError] = useState<string | null>(null);
   const [voteSuccess, setVoteSuccess] = useState<string | null>(null);
+  const [isCreatingProposal, setIsCreatingProposal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   // Wallet state managed externally for SSR safety
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
@@ -452,8 +563,12 @@ export default function GuildPage() {
 
   const selectedRealmData = realms.find(r => r.realm_address === selectedRealm);
 
+  const queryClient = useQueryClient();
+
   // Vote handler ref — set by WalletBridge when wallet connects
   const voteHandlerRef = useRef<((choice: "yes" | "no" | "abstain") => Promise<void>) | null>(null);
+  // Proposal creation handler ref — set by WalletBridge
+  const proposalHandlerRef = useRef<((title: string, description: string) => Promise<void>) | null>(null);
 
   const handleVote = useCallback(async (choice: "yes" | "no" | "abstain") => {
     if (!voteHandlerRef.current) {
@@ -472,6 +587,26 @@ export default function GuildPage() {
       setIsSubmittingVote(false);
     }
   }, []);
+
+  const handleCreateProposal = useCallback(async (title: string, description: string) => {
+    if (!proposalHandlerRef.current) {
+      setCreateError("Wallet not connected");
+      return;
+    }
+    setIsCreatingProposal(true);
+    setCreateError(null);
+    try {
+      await proposalHandlerRef.current(title, description);
+      setCreateSuccess("Proposal inscribed successfully!");
+      setShowCreateModal(false);
+      // Refresh proposals list
+      queryClient.invalidateQueries({ queryKey: ["guild", "proposals"] });
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create proposal");
+    } finally {
+      setIsCreatingProposal(false);
+    }
+  }, [queryClient]);
 
   const proposals = proposalsData?.proposals ?? [];
   const activeProposalCount = proposals.filter(p => p.state === 2).length;
@@ -769,6 +904,30 @@ export default function GuildPage() {
                   </Panel>
                 )}
 
+                {/* Proposal creation feedback */}
+                {createError && (
+                  <Panel className="!border-blood-pink/50">
+                    <p className="font-pixel text-[9px] text-blood-pink">{createError}</p>
+                    <button
+                      onClick={() => setCreateError(null)}
+                      className="font-silk text-[8px] text-faded-spirit mt-1 hover:text-ghost-white"
+                    >
+                      Dismiss
+                    </button>
+                  </Panel>
+                )}
+                {createSuccess && (
+                  <Panel className="!border-spectral-green/50">
+                    <p className="font-pixel text-[9px] text-spectral-green">{createSuccess}</p>
+                    <button
+                      onClick={() => setCreateSuccess(null)}
+                      className="font-silk text-[8px] text-faded-spirit mt-1 hover:text-ghost-white"
+                    >
+                      Dismiss
+                    </button>
+                  </Panel>
+                )}
+
                 {/* Vote feedback */}
                 {voteError && (
                   <Panel className="!border-blood-pink/50">
@@ -808,8 +967,20 @@ export default function GuildPage() {
                     <EmptyState
                       icon={"\uD83D\uDCDC"}
                       text="No proposals yet"
-                      subtext="Council members create proposals through Realms to manage treasury funds"
+                      subtext="Be the first to inscribe a decree for the council"
                     />
+                    {isWalletConnected && (
+                      <div className="text-center mt-4">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setShowCreateModal(true)}
+                          className="px-4 py-2 bg-ritual-gold/20 border border-ritual-gold text-ritual-gold font-pixel text-[9px] rounded"
+                        >
+                          + CREATE FIRST PROPOSAL
+                        </motion.button>
+                      </div>
+                    )}
                   </Panel>
                 ) : (
                   <div className="space-y-4">
@@ -817,9 +988,21 @@ export default function GuildPage() {
                       <h3 className="font-pixel text-[10px] text-ritual-gold">
                         {proposalsData?.realmName ?? "Proposals"}
                       </h3>
-                      <span className="font-pixel text-[8px] text-faded-spirit">
-                        {proposals.length} proposal{proposals.length !== 1 ? "s" : ""}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-pixel text-[8px] text-faded-spirit">
+                          {proposals.length} proposal{proposals.length !== 1 ? "s" : ""}
+                        </span>
+                        {isWalletConnected && selectedRealm && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setShowCreateModal(true)}
+                            className="px-3 py-1.5 bg-ritual-gold/20 border border-ritual-gold text-ritual-gold font-pixel text-[8px] rounded"
+                          >
+                            + CREATE PROPOSAL
+                          </motion.button>
+                        )}
+                      </div>
                     </div>
                     {proposals.map((proposal, i) => (
                       <motion.div
@@ -857,6 +1040,7 @@ export default function GuildPage() {
           votingProposal={votingProposal}
           selectedRealmData={selectedRealmData}
           setVoteHandler={(fn) => { voteHandlerRef.current = fn; }}
+          setProposalHandler={(fn) => { proposalHandlerRef.current = fn; }}
         />
       )}
 
@@ -867,6 +1051,14 @@ export default function GuildPage() {
         onVote={handleVote}
         onClose={() => setVotingProposal(null)}
         isSubmitting={isSubmittingVote}
+      />
+
+      {/* Create Proposal Modal */}
+      <CreateProposalModal
+        isOpen={showCreateModal}
+        onSubmit={handleCreateProposal}
+        onClose={() => setShowCreateModal(false)}
+        isSubmitting={isCreatingProposal}
       />
     </div>
   );

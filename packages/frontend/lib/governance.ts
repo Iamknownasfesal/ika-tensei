@@ -19,9 +19,13 @@ import {
 import {
   withCastVote,
   withCreateTokenOwnerRecord,
+  withCreateProposal,
+  withSignOffProposal,
+  getGovernance,
   Vote,
   VoteKind,
   VoteChoice,
+  VoteType,
 } from "@solana/spl-governance";
 import { CONTRACTS } from "./constants";
 
@@ -237,6 +241,145 @@ export async function buildVoteTransaction(
     wallet, // payer
     voterWeightRecord,
     maxVoterWeightRecord
+  );
+
+  const tx = new Transaction().add(...instructions);
+  tx.feePayer = wallet;
+  tx.recentBlockhash = (
+    await connection.getLatestBlockhash("confirmed")
+  ).blockhash;
+
+  return tx;
+}
+
+// ─── Proposal Creation ─────────────────────────────────────────────────────
+
+export interface ProposalParams {
+  realmAddress: string;
+  communityMint: string;
+  governanceAddress: string;
+  walletPubkey: string;
+  /** Reborn NFT asset addresses owned by this wallet (for voter weight) */
+  rebornAssets: string[];
+  title: string;
+  description: string;
+}
+
+/**
+ * Build a proposal creation transaction for SPL Governance with ika-core-voter plugin.
+ *
+ * Creates + immediately signs off the proposal so it enters Voting state.
+ * Returns an unsigned Transaction that the wallet must sign and send.
+ */
+export async function buildCreateProposalTransaction(
+  connection: Connection,
+  params: ProposalParams
+): Promise<Transaction> {
+  const realm = new PublicKey(params.realmAddress);
+  const communityMint = new PublicKey(params.communityMint);
+  const governance = new PublicKey(params.governanceAddress);
+  const wallet = new PublicKey(params.walletPubkey);
+
+  const registrar = deriveRegistrar(realm, communityMint);
+  const voterWeightRecord = deriveVoterWeightRecord(
+    realm,
+    communityMint,
+    wallet
+  );
+  const tokenOwnerRecord = deriveTokenOwnerRecord(
+    realm,
+    communityMint,
+    wallet
+  );
+
+  const instructions: TransactionInstruction[] = [];
+
+  // 1. Create TokenOwnerRecord if it doesn't exist yet
+  const torInfo = await connection.getAccountInfo(tokenOwnerRecord);
+  if (!torInfo) {
+    await withCreateTokenOwnerRecord(
+      instructions,
+      SPL_GOVERNANCE_PROGRAM_ID,
+      GOVERNANCE_PROGRAM_VERSION,
+      realm,
+      wallet,
+      communityMint,
+      wallet
+    );
+  }
+
+  // 2. Create VoterWeightRecord if it doesn't exist
+  const vwrInfo = await connection.getAccountInfo(voterWeightRecord);
+  if (!vwrInfo) {
+    instructions.push(
+      new TransactionInstruction({
+        programId: CORE_VOTER_PROGRAM_ID,
+        keys: [
+          { pubkey: registrar, isSigner: false, isWritable: false },
+          { pubkey: voterWeightRecord, isSigner: false, isWritable: true },
+          { pubkey: wallet, isSigner: true, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        data: CREATE_VOTER_WEIGHT_RECORD_DISC,
+      })
+    );
+  }
+
+  // 3. Update VoterWeightRecord (must be in same tx — slot-based expiry)
+  const assetKeys = params.rebornAssets.map((addr) => ({
+    pubkey: new PublicKey(addr),
+    isSigner: false,
+    isWritable: false,
+  }));
+
+  instructions.push(
+    new TransactionInstruction({
+      programId: CORE_VOTER_PROGRAM_ID,
+      keys: [
+        { pubkey: registrar, isSigner: false, isWritable: false },
+        { pubkey: voterWeightRecord, isSigner: false, isWritable: true },
+        { pubkey: wallet, isSigner: true, isWritable: false },
+        ...assetKeys,
+      ],
+      data: UPDATE_VOTER_WEIGHT_RECORD_DISC,
+    })
+  );
+
+  // 4. Fetch governance account to get current proposal index
+  const governanceAccount = await getGovernance(connection, governance);
+  const proposalIndex = governanceAccount.account.proposalCount;
+
+  // 5. Create proposal
+  const proposalAddress = await withCreateProposal(
+    instructions,
+    SPL_GOVERNANCE_PROGRAM_ID,
+    GOVERNANCE_PROGRAM_VERSION,
+    realm,
+    governance,
+    tokenOwnerRecord,
+    params.title,
+    params.description,
+    communityMint,
+    wallet,
+    proposalIndex,
+    VoteType.SINGLE_CHOICE,
+    ["Approve"],
+    true, // useDenyOption
+    wallet, // payer
+    voterWeightRecord
+  );
+
+  // 6. Sign off proposal (Draft → Voting)
+  withSignOffProposal(
+    instructions,
+    SPL_GOVERNANCE_PROGRAM_ID,
+    GOVERNANCE_PROGRAM_VERSION,
+    realm,
+    governance,
+    proposalAddress,
+    wallet, // signatory
+    undefined, // signatoryRecord (undefined = proposer is signatory)
+    tokenOwnerRecord
   );
 
   const tx = new Transaction().add(...instructions);

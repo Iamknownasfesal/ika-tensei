@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Connection } from "@solana/web3.js";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { isSolanaWallet } from "@dynamic-labs/solana";
-import { buildVoteTransaction } from "@/lib/governance";
+import { buildVoteTransaction, buildCreateProposalTransaction } from "@/lib/governance";
 import type { GuildRealm, GuildProposal } from "@/lib/api";
 
 /**
@@ -17,11 +17,13 @@ export function WalletBridge({
   votingProposal,
   selectedRealmData,
   setVoteHandler,
+  setProposalHandler,
 }: {
   onAddress: (addr: string | null) => void;
   votingProposal: GuildProposal | null;
   selectedRealmData: GuildRealm | undefined;
   setVoteHandler: (fn: ((choice: "yes" | "no" | "abstain") => Promise<void>) | null) => void;
+  setProposalHandler: (fn: ((title: string, description: string) => Promise<void>) | null) => void;
 }) {
   const { primaryWallet } = useDynamicContext();
 
@@ -67,6 +69,39 @@ export function WalletBridge({
 
     setVoteHandler(handler);
   }, [primaryWallet, selectedRealmData, votingProposal, setVoteHandler]);
+
+  // Provide proposal creation handler
+  useEffect(() => {
+    if (!primaryWallet || !isSolanaWallet(primaryWallet) || !selectedRealmData) {
+      setProposalHandler(null);
+      return;
+    }
+
+    const wallet = primaryWallet;
+
+    const handler = async (title: string, description: string) => {
+      const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
+      const connection = new Connection(rpcUrl, "confirmed");
+
+      const tx = await buildCreateProposalTransaction(connection, {
+        realmAddress: selectedRealmData.realm_address,
+        communityMint: selectedRealmData.community_mint,
+        governanceAddress: selectedRealmData.governance_address,
+        walletPubkey: wallet.address,
+        rebornAssets: [],
+        title,
+        description,
+      });
+
+      const signer = await wallet.getSigner();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signedTx = await signer.signTransaction(tx as any);
+      const sig = await connection.sendRawTransaction(signedTx.serialize());
+      await connection.confirmTransaction(sig, "confirmed");
+    };
+
+    setProposalHandler(handler);
+  }, [primaryWallet, selectedRealmData, setProposalHandler]);
 
   return null;
 }
