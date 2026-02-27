@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 
-const DEFAULT_VOLUME = 0.15;
+const DEFAULT_VOLUME = 0.075;
 
 export function BgmPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -68,12 +68,13 @@ export function BgmPlayer() {
 
       <motion.button
         onClick={toggleMute}
-        className="fixed z-40 bottom-4 right-4 md:bottom-4 md:right-4
+        className="fixed bottom-4 right-4
           w-11 h-11 flex items-center justify-center
           bg-ritual-dark/90 backdrop-blur-sm border-2 border-sigil-border
           rounded-sm cursor-pointer select-none
           transition-shadow duration-300"
         style={{
+          zIndex: 9999,
           boxShadow: isMuted
             ? "0 0 6px rgba(138,122,154,0.3)"
             : "0 0 12px rgba(255,51,102,0.5), 0 0 24px rgba(255,51,102,0.2)",
