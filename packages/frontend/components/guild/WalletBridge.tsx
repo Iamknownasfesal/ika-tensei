@@ -7,6 +7,22 @@ import { isSolanaWallet } from "@dynamic-labs/solana";
 import { buildVoteTransaction, buildCreateProposalTransaction } from "@/lib/governance";
 import type { GuildRealm, GuildProposal } from "@/lib/api";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+/** Fetch Reborn NFT mint addresses for a wallet, filtered by collection */
+async function fetchRebornAssets(walletAddress: string, collectionName: string): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/reborn?address=${encodeURIComponent(walletAddress)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.nfts || [])
+      .filter((n: { collectionName?: string }) => n.collectionName === collectionName)
+      .map((n: { mint: string }) => n.mint);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Invisible bridge component that connects the Dynamic.xyz wallet to the guild page.
  * Must be rendered inside DynamicContextProvider.
@@ -50,13 +66,15 @@ export function WalletBridge({
       const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
       const connection = new Connection(rpcUrl, "confirmed");
 
+      const rebornAssets = await fetchRebornAssets(wallet.address, selectedRealmData.collection_name);
+
       const tx = await buildVoteTransaction(connection, {
         realmAddress: selectedRealmData.realm_address,
         communityMint: selectedRealmData.community_mint,
         governanceAddress: selectedRealmData.governance_address,
         proposalAddress: votingProposal.address,
         walletPubkey: wallet.address,
-        rebornAssets: [],
+        rebornAssets,
         voteKind: choice,
       });
 
@@ -83,12 +101,17 @@ export function WalletBridge({
       const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
       const connection = new Connection(rpcUrl, "confirmed");
 
+      const rebornAssets = await fetchRebornAssets(wallet.address, selectedRealmData.collection_name);
+      if (rebornAssets.length === 0) {
+        throw new Error("You need at least one Reborn NFT from this collection to create proposals");
+      }
+
       const tx = await buildCreateProposalTransaction(connection, {
         realmAddress: selectedRealmData.realm_address,
         communityMint: selectedRealmData.community_mint,
         governanceAddress: selectedRealmData.governance_address,
         walletPubkey: wallet.address,
-        rebornAssets: [],
+        rebornAssets,
         title,
         description,
       });

@@ -601,6 +601,7 @@ export class Relayer {
           originalChain: s.sourceChain,
           originalContract: s.nftContract || "",
           originalTokenId: s.tokenId || "",
+          collectionName: s.collectionName || "",
           sealHash: s.sessionId,
           rebornDate: new Date(s.createdAt).toISOString(),
         }));
@@ -855,12 +856,16 @@ export class Relayer {
           return;
         }
 
-        // Derive collection PDA with correct seeds: ["reborn_collection", source_chain_u16, nft_contract]
+        // Encode nft_contract to 32-byte format (same as encodeNftContract)
+        const nftContractBytes = this.encodeNftContract(sessionRow.source_chain, sessionRow.nft_contract);
+
+        // Derive collection PDA with correct seeds: ["reborn_collection", source_chain_u16_le, nft_contract_32bytes]
         const programId = new PublicKey(config.solanaProgramId);
+        const chainId = this.sourceChainToId(sessionRow.source_chain);
         const sourceChainBuf = Buffer.alloc(2);
-        sourceChainBuf.writeUInt16LE(Number(sessionRow.source_chain));
+        sourceChainBuf.writeUInt16LE(chainId);
         const [collectionPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("reborn_collection"), sourceChainBuf, Buffer.from(sessionRow.nft_contract)],
+          [Buffer.from("reborn_collection"), sourceChainBuf, Buffer.from(nftContractBytes)],
           programId,
         );
 

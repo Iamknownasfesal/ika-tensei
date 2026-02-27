@@ -22,6 +22,7 @@ import {
   withCreateProposal,
   withSignOffProposal,
   getGovernance,
+  getProposal,
   Vote,
   VoteKind,
   VoteChoice,
@@ -151,6 +152,14 @@ export async function buildVoteTransaction(
 
   const instructions: TransactionInstruction[] = [];
 
+  // Check if the voter plugin registrar exists (Phase 2 configured)
+  const registrarInfo = await connection.getAccountInfo(registrar);
+  if (!registrarInfo) {
+    throw new Error(
+      "This realm's governance is not fully configured yet. Use the 'Activate Governance' button or bridge an NFT first."
+    );
+  }
+
   // 1. Create TokenOwnerRecord if it doesn't exist yet
   const torInfo = await connection.getAccountInfo(tokenOwnerRecord);
   if (!torInfo) {
@@ -205,7 +214,11 @@ export async function buildVoteTransaction(
     })
   );
 
-  // 4. Cast vote
+  // 4. Fetch the proposal to get the creator's token owner record
+  const proposalAccount = await getProposal(connection, proposal);
+  const proposalOwnerRecord = proposalAccount.account.tokenOwnerRecord;
+
+  // 5. Cast vote
   const vote =
     params.voteKind === "yes"
       ? new Vote({
@@ -235,8 +248,8 @@ export async function buildVoteTransaction(
     realm,
     governance,
     proposal,
-    tokenOwnerRecord, // proposal owner's token owner record
-    tokenOwnerRecord, // voter's token owner record (same for self-vote)
+    proposalOwnerRecord, // proposal creator's token owner record
+    tokenOwnerRecord, // voter's token owner record
     wallet, // governance authority (voter)
     communityMint,
     vote,
