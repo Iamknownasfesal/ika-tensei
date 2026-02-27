@@ -6,6 +6,7 @@ import { NavigationBar } from "@/components/ui/NavigationBar";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { DemoModeBanner } from "@/components/ui/DemoModeBanner";
 import { EasterEggs } from "@/components/ui/EasterEggs";
+import { BgmPlayer } from "@/components/ui/BgmPlayer";
 
 export const metadata: Metadata = {
   title: "イカ転生 | Ika Tensei - NFT Reincarnation Protocol",
@@ -52,6 +53,7 @@ export default function RootLayout({
               <ErrorBoundary>
                 <DemoModeBanner />
                 <NavigationBar />
+                <BgmPlayer />
                 <main className="pt-16">
                   {children}
                 </main>
