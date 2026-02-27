@@ -417,12 +417,12 @@ export class RealmCreator {
     configureData.writeUInt32LE(1, 40);
     configureData.writeUInt32LE(0, 44);
 
+    // Deployed program expects 2 accounts: registrar + realm_authority (no realm)
     tx2Instructions.push(
       new TransactionInstruction({
         programId: coreVoterProgramId,
         keys: [
           { pubkey: registrar, isSigner: false, isWritable: true },
-          { pubkey: realm, isSigner: false, isWritable: false },
           { pubkey: payer, isSigner: true, isWritable: false },      // realm_authority
         ],
         data: configureData,
@@ -439,11 +439,11 @@ export class RealmCreator {
       maxWeight.writeUInt32LE(10000, 8);
       maxWeight.writeUInt32LE(0, 12);
 
+      // Deployed program expects 6 accounts (no registrar)
       tx2Instructions.push(
         new TransactionInstruction({
           programId: coreVoterProgramId,
           keys: [
-            { pubkey: registrar, isSigner: false, isWritable: false },
             { pubkey: maxVoterWeightRecord, isSigner: false, isWritable: true },
             { pubkey: realm, isSigner: false, isWritable: false },
             { pubkey: communityMint, isSigner: false, isWritable: false },
