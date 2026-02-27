@@ -85,7 +85,7 @@ module ikatensei::dwallet_registry {
         /// deposit_address -> metadata record
         wallets: Table<vector<u8>, DWalletRecord>,
         /// deposit_address -> actual DWalletCap (contract-controlled)
-        .: Table<vector<u8>, DWalletCap>,
+        dwallet_caps: Table<vector<u8>, DWalletCap>,
         /// dwallet_id bytes -> deposit_address (reverse lookup)
         dwallet_ids: Table<vector<u8>, vector<u8>>,
         total_registered: u64,
