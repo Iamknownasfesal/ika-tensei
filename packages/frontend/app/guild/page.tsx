@@ -10,6 +10,7 @@ import { DialogueBox } from "@/components/ui/DialogueBox";
 import { SummoningCircle } from "@/components/ui/SummoningCircle";
 import { useGuildRealms, useGuildProposals, useGuildTreasury, useGuildStats } from "@/hooks/useGuild";
 import { useQueryClient } from "@tanstack/react-query";
+import { configureRealmVoterPlugin } from "@/lib/api";
 import type { GuildRealm, GuildProposal } from "@/lib/api";
 
 // Dynamic import to avoid SSR issues with useDynamicContext
@@ -543,6 +544,7 @@ export default function GuildPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [isConfiguring, setIsConfiguring] = useState(false);
   // Wallet state managed externally for SSR safety
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
@@ -607,6 +609,21 @@ export default function GuildPage() {
       setIsCreatingProposal(false);
     }
   }, [queryClient]);
+
+  const handleConfigureRealm = useCallback(async () => {
+    if (!selectedRealm) return;
+    setIsConfiguring(true);
+    setCreateError(null);
+    try {
+      await configureRealmVoterPlugin(selectedRealm);
+      setCreateSuccess("Governance activated! You can now create proposals.");
+      queryClient.invalidateQueries({ queryKey: ["guild", "realms"] });
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to configure governance");
+    } finally {
+      setIsConfiguring(false);
+    }
+  }, [selectedRealm, queryClient]);
 
   const proposals = proposalsData?.proposals ?? [];
   const activeProposalCount = proposals.filter(p => p.state === 2).length;
@@ -901,6 +918,25 @@ export default function GuildPage() {
                     <p className="font-silk text-[9px] text-faded-spirit">
                       You need a connected Solana wallet with Reborn NFTs to cast votes
                     </p>
+                  </Panel>
+                )}
+
+                {/* Voter plugin not configured */}
+                {selectedRealmData && !selectedRealmData.collection_asset && (
+                  <Panel className="text-center">
+                    <p className="font-pixel text-[10px] text-ritual-gold mb-2">Governance not activated</p>
+                    <p className="font-silk text-[9px] text-faded-spirit mb-3">
+                      The voter plugin needs to be configured before proposals can be created
+                    </p>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleConfigureRealm}
+                      disabled={isConfiguring}
+                      className="px-4 py-2 bg-ritual-gold/20 border border-ritual-gold text-ritual-gold font-pixel text-[9px] rounded disabled:opacity-50"
+                    >
+                      {isConfiguring ? "ACTIVATING..." : "ACTIVATE GOVERNANCE"}
+                    </motion.button>
                   </Panel>
                 )}
 

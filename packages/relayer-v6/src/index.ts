@@ -52,6 +52,7 @@ import {
   insertRealm,
   getAllRealms,
   getRealmByAddress,
+  getRealmByCollection,
   updateRealmCollectionAsset,
 } from "./db.js";
 import { ChainVerifier } from "./chain-verifier.js";
@@ -818,6 +819,83 @@ export class Relayer {
         res.status(500).json({ error: "Failed to fetch guild stats" });
       }
     });
+
+    /**
+     * POST /api/guild/realm/:address/configure — Retry Phase 2 voter plugin config
+     *
+     * For realms where Phase 2 failed (collection_asset is null).
+     * Reads the Core collection asset from the on-chain RebornCollection PDA
+     * and configures the voter weight plugin.
+     */
+    this.app.post("/api/guild/realm/:address/configure", async (req, res) => {
+      try {
+        const realm = getRealmByAddress(req.params.address);
+        if (!realm) {
+          res.status(404).json({ error: "Realm not found" });
+          return;
+        }
+        if (realm.collection_asset) {
+          res.json({ status: "already_configured", collection_asset: realm.collection_asset });
+          return;
+        }
+
+        // Find the Core collection asset from Solana on-chain data
+        const config = getConfig();
+        const conn = new Connection(config.solanaRpcUrl, "confirmed");
+        const { PublicKey } = await import("@solana/web3.js");
+
+        // Look up collection PDA for this realm's collection name
+        const programId = new PublicKey(config.solanaProgramId);
+        const collectionSeeds = [
+          Buffer.from("reborn_collection"),
+          Buffer.from(realm.collection_name),
+        ];
+        const [collectionPda] = PublicKey.findProgramAddressSync(collectionSeeds, programId);
+
+        const pda = await conn.getAccountInfo(collectionPda);
+        if (!pda || pda.data.length < 8) {
+          res.status(400).json({ error: "Collection PDA not found on-chain — no NFTs minted yet" });
+          return;
+        }
+
+        // Parse collection_asset_address from PDA data (same layout as solana-submitter)
+        let offset = 8; // discriminator
+        offset += 2; // source_chain u16
+        const contractLen = pda.data.readUInt32LE(offset);
+        offset += 4 + contractLen;
+        const nameLen = pda.data.readUInt32LE(offset);
+        offset += 4 + nameLen;
+        if (offset + 32 > pda.data.length) {
+          res.status(400).json({ error: "Cannot parse collection asset from PDA" });
+          return;
+        }
+        const collAssetPubkey = new PublicKey(pda.data.subarray(offset, offset + 32));
+        if (collAssetPubkey.equals(PublicKey.default)) {
+          res.status(400).json({ error: "Collection asset not initialized on-chain" });
+          return;
+        }
+
+        const collAddress = collAssetPubkey.toBase58();
+
+        await this.realmCreator.configureRealmForCollection(
+          realm.collection_name,
+          collAddress,
+          realm.community_mint,
+          this.relayerKeypair,
+          conn,
+        );
+        updateRealmCollectionAsset(realm.realm_address, collAddress);
+
+        logger.info(
+          { realmAddress: realm.realm_address, collectionAsset: collAddress },
+          "Voter plugin configured via manual trigger",
+        );
+        res.json({ status: "configured", collection_asset: collAddress });
+      } catch (err) {
+        logger.error({ err }, "Failed to configure realm voter plugin");
+        res.status(500).json({ error: err instanceof Error ? err.message : "Configuration failed" });
+      }
+    });
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
@@ -1231,6 +1309,34 @@ export class Relayer {
                 "Failed to create/configure realm DAO — can be done manually later",
               );
             });
+        } else {
+          // Retry Phase 2 if realm exists but voter plugin wasn't configured
+          const collName = processedSeal.collectionName;
+          const existingRealm = getRealmByCollection(collName);
+          if (existingRealm && !existingRealm.collection_asset && result.collectionAssetAddress) {
+            const conn = new Connection(getConfig().solanaRpcUrl, "confirmed");
+            this.realmCreator
+              .configureRealmForCollection(
+                collName,
+                result.collectionAssetAddress,
+                existingRealm.community_mint,
+                this.relayerKeypair,
+                conn,
+              )
+              .then(() => {
+                updateRealmCollectionAsset(existingRealm.realm_address, result.collectionAssetAddress!);
+                logger.info(
+                  { collectionName: collName, collectionAsset: result.collectionAssetAddress },
+                  "Voter plugin configured for collection (Phase 2 retry)",
+                );
+              })
+              .catch((err) => {
+                logger.error(
+                  { err, collectionName: collName },
+                  "Phase 2 retry failed — voter plugin not configured",
+                );
+              });
+          }
         }
       } else {
         logger.error(

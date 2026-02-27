@@ -310,6 +310,14 @@ export async function buildCreateProposalTransaction(
     );
   }
 
+  // Check if the voter plugin registrar exists (Phase 2 configured)
+  const registrarInfo = await connection.getAccountInfo(registrar);
+  if (!registrarInfo) {
+    throw new Error(
+      "This realm's governance is not fully configured yet. Bridge an NFT first to activate the voter plugin."
+    );
+  }
+
   // 2. Create VoterWeightRecord if it doesn't exist
   const vwrInfo = await connection.getAccountInfo(voterWeightRecord);
   if (!vwrInfo) {
@@ -317,9 +325,11 @@ export async function buildCreateProposalTransaction(
       new TransactionInstruction({
         programId: CORE_VOTER_PROGRAM_ID,
         keys: [
-          { pubkey: registrar, isSigner: false, isWritable: false },
           { pubkey: voterWeightRecord, isSigner: false, isWritable: true },
-          { pubkey: wallet, isSigner: true, isWritable: true },
+          { pubkey: realm, isSigner: false, isWritable: false },
+          { pubkey: communityMint, isSigner: false, isWritable: false },
+          { pubkey: wallet, isSigner: false, isWritable: false }, // voter
+          { pubkey: wallet, isSigner: true, isWritable: true }, // payer
           { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         ],
         data: CREATE_VOTER_WEIGHT_RECORD_DISC,

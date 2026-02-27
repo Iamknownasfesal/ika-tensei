@@ -571,7 +571,7 @@ export class SolanaSubmitter {
     return {
       txHash,
       isNewCollection: isFirstMint,
-      collectionAssetAddress: isFirstMint ? collectionAssetPubkey.toBase58() : undefined,
+      collectionAssetAddress: collectionAssetPubkey.toBase58(),
     };
   }
 }

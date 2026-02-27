@@ -251,6 +251,15 @@ export async function getGuildStats(): Promise<GuildStats> {
   return fetchApi<GuildStats>("/api/guild/stats");
 }
 
+export async function configureRealmVoterPlugin(
+  realmAddress: string
+): Promise<{ status: string; collection_asset?: string }> {
+  return fetchApi<{ status: string; collection_asset?: string }>(
+    `/api/guild/realm/${encodeURIComponent(realmAddress)}/configure`,
+    { method: "POST" }
+  );
+}
+
 export async function getStats() {
   return fetchApi<{ sealed: number; reborn: number; chains: number }>(
     "/api/stats"
